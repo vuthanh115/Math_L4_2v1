@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Bảng Vẽ Bài Tập Toán 4</title>
+    <style>
+        :root {
+            --toolbar-height: 80px;
+            --bg-color: #f0f2f5;
+            --primary-color: #2196F3;
+            --secondary-color: #FF4081;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg-color);
+            font-family: 'Segoe UI', sans-serif;
+            overflow: hidden;
+            /* Prevent scroll checking */
+            touch-action: none;
+            /* Prevent browser zoom/scroll on touch */
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        /* --- Canvas Area --- */
+        #canvas-container {
+            flex: 1;
+            position: relative;
+            overflow: auto;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            /* Align top */
+            padding: 20px;
+            box-sizing: border-box;
+            background-image:
+                linear-gradient(45deg, #ccc 25%, transparent 25%),
+                linear-gradient(-45deg, #ccc 25%, transparent 25%),
+                linear-gradient(45deg, transparent 75%, #ccc 75%),
+                linear-gradient(-45deg, transparent 75%, #ccc 75%);
+            background-size: 20px 20px;
+            background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+        }
+
+        .canvas-wrapper {
+            position: relative;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.2);
+            background: white;
+        }
+
+        canvas {
+            display: block;
+            touch-action: none;
+        }
+
+        #bg-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 1;
+        }
+
+        #draw-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 2;
+            cursor: crosshair;
+        }
+
+        /* Input styling for Text Tool */
+        .text-input-overlay {
+            position: absolute;
+            background: rgba(255, 255, 255, 0.8);
+            border: 1px dashed #2196F3;
+            padding: 2px 5px;
+            z-index: 100;
+            min-width: 50px;
+            outline: none;
+            font-family: 'Segoe UI', sans-serif;
+        }
+
+        /* --- Toolbar --- */
+        #toolbar {
+            height: var(--toolbar-height);
+            background: white;
+            box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+            padding: 0 10px;
+            z-index: 10;
+            flex-wrap: wrap;
+        }
+
+        .tool-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 0 10px;
+            border-right: 1px solid #eee;
+        }
+
+        .tool-group:last-child {
+            border-right: none;
+        }
+
+        .btn-tool {
+            width: 45px;
+            height: 45px;
+            border-radius: 10px;
+            border: 2px solid #ddd;
+            background: white;
+            cursor: pointer;
+            font-size: 1.2rem;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transition: all 0.2s;
+            position: relative;
+        }
+
+        .btn-tool:hover {
+            background: #f5f5f5;
+        }
+
+        .btn-tool.active {
+            border-color: var(--primary-color);
+            background: #E3F2FD;
+            transform: translateY(-2px);
+            box-shadow: 0 2px 5px rgba(33, 150, 243, 0.3);
+        }
+
+        .color-picker {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            border: 2px solid white;
+            box-shadow: 0 0 0 2px #ddd;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .color-picker.active {
+            transform: scale(1.2);
+            box-shadow: 0 0 0 2px var(--primary-color);
+        }
+
+        input[type=range] {
+            width: 80px;
+        }
+
+        .btn-action {
+            padding: 8px 15px;
+            border-radius: 20px;
+            border: none;
+            font-weight: bold;
+            cursor: pointer;
+            color: white;
+            font-size: 0.9rem;
+        }
+
+        .btn-clear {
+            background: #FF9800;
+        }
+
+        .btn-save {
+            background: #4CAF50;
+        }
+
+        /* Mobile adjustment */
+        @media (max-width: 600px) {
+            #toolbar {
+                height: auto;
+                padding: 10px;
+                gap: 5px;
+            }
+
+            .tool-group {
+                border-right: none;
+                padding: 0 5px;
+            }
+
+            .btn-tool {
+                width: 35px;
+                height: 35px;
+                font-size: 1rem;
+            }
+
+            input[type=range] {
+                width: 60px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="canvas-container">
+        <div class="canvas-wrapper" id="wrapper">
+            <canvas id="bg-canvas"></canvas>
+            <canvas id="draw-canvas"></canvas>
+        </div>
+    </div>
+
+    <div id="toolbar">
+        <!-- Tools -->
+        <div class="tool-group">
+            <button class="btn-tool active" onclick="setTool('pen')" title="Bút vẽ">✏️</button>
+            <button class="btn-tool" onclick="setTool('eraser')" title="Tẩy">🧼</button>
+            <button class="btn-tool" onclick="setTool('text')" title="Nhập chữ"
+                style="font-weight:bold; font-family:serif;">T</button>
+        </div>
+
+        <!-- Colors -->
+        <div class="tool-group" id="color-group">
+            <div class="color-picker active" style="background: #000000;" onclick="setColor('#000000', this)"></div>
+            <div class="color-picker" style="background: #2196F3;" onclick="setColor('#2196F3', this)"></div>
+            <div class="color-picker" style="background: #F44336;" onclick="setColor('#F44336', this)"></div>
+            <div class="color-picker" style="background: #4CAF50;" onclick="setColor('#4CAF50', this)"></div>
+        </div>
+
+        <!-- Size -->
+        <div class="tool-group">
+            <span style="font-size: 0.8rem;">Cỡ:</span>
+            <input type="range" min="1" max="20" value="3" oninput="setSize(this.value)">
+        </div>
+
+        <!-- Actions -->
+        <div class="tool-group">
+            <button class="btn-action btn-clear" onclick="clearCanvas()">Xóa Hết 🗑️</button>
+            <button class="btn-action btn-save" onclick="saveCanvas()">Lưu Ảnh 💾</button>
+        </div>
+
+        <!-- Navigation (Optional) -->
+        <div class="tool-group">
+            <button class="btn-tool" onclick="changeImage(-1)">⬅️</button>
+            <div id="page-indicator" style="font-weight:bold; font-size:0.9rem;">Trang 7</div>
+            <button class="btn-tool" onclick="changeImage(1)">➡️</button>
+        </div>
+    </div>
+
+    <script>
+        // --- Configuration ---
+        const CONFIG = {
+            imageDir: 'Math_Images',
+            filePrefix: 'Page_',
+            fileExt: '.png',
+            startPage: 8,
+            endPage: 107
+        };
+
+        // --- State ---
+        let currentPage = CONFIG.startPage;
+        let isDrawing = false;
+        let currentTool = 'pen';
+        let currentColor = '#000000';
+        let currentSize = 3;
+
+        const wrapper = document.getElementById('wrapper');
+        const bgCanvas = document.getElementById('bg-canvas');
+        const bgCtx = bgCanvas.getContext('2d');
+        const drawCanvas = document.getElementById('draw-canvas');
+        const ctx = drawCanvas.getContext('2d');
+
+        // --- Initialization ---
+        window.onload = () => {
+            loadImage(currentPage);
+            setupEvents();
+        };
+
+        function loadImage(pageNum) {
+            const numStr = pageNum.toString().padStart(2, '0');
+            const imgPath = `${CONFIG.imageDir}/${CONFIG.filePrefix}${numStr}${CONFIG.fileExt}`;
+
+            const img = new Image();
+            img.src = imgPath;
+            img.onload = () => {
+                // Resize canvases to match image
+                wrapper.style.width = img.width + 'px';
+                wrapper.style.height = img.height + 'px';
+
+                bgCanvas.width = img.width;
+                bgCanvas.height = img.height;
+                drawCanvas.width = img.width;
+                drawCanvas.height = img.height;
+
+                // Draw Background
+                bgCtx.drawImage(img, 0, 0);
+
+                clearDrawLayer();
+
+                document.getElementById('page-indicator').innerText = `Trang ${pageNum}`;
+            };
+            img.onerror = () => {
+                alert("Không tìm thấy ảnh: " + imgPath);
+            };
+        }
+
+        function changeImage(delta) {
+            let newPage = currentPage + delta;
+            if (newPage >= 1 && newPage <= CONFIG.endPage) {
+                currentPage = newPage;
+                loadImage(currentPage);
+            }
+        }
+
+        // --- Drawing Logic ---
+        function setupEvents() {
+            // Mouse
+            drawCanvas.addEventListener('mousedown', startDraw);
+            drawCanvas.addEventListener('mousemove', draw);
+            drawCanvas.addEventListener('mouseup', stopDraw);
+            drawCanvas.addEventListener('mouseout', stopDraw);
+
+            // Touch
+            drawCanvas.addEventListener('touchstart', (e) => {
+                e.preventDefault(); // Prevent scroll
+                const touch = e.touches[0];
+                const mouseEvent = new MouseEvent('mousedown', {
+                    clientX: touch.clientX,
+                    clientY: touch.clientY
+                });
+                drawCanvas.dispatchEvent(mouseEvent);
+            }, { passive: false });
+
+            drawCanvas.addEventListener('touchmove', (e) => {
+                e.preventDefault();
+                const touch = e.touches[0];
+                const mouseEvent = new MouseEvent('mousemove', {
+                    clientX: touch.clientX,
+                    clientY: touch.clientY
+                });
+                drawCanvas.dispatchEvent(mouseEvent);
+            }, { passive: false });
+
+            drawCanvas.addEventListener('touchend', (e) => {
+                const mouseEvent = new MouseEvent('mouseup', {});
+                drawCanvas.dispatchEvent(mouseEvent);
+            });
+        }
+
+        function getPos(e) {
+            const rect = drawCanvas.getBoundingClientRect();
+            return {
+                x: e.clientX - rect.left,
+                y: e.clientY - rect.top
+            };
+        }
+
+        function startDraw(e) {
+            if (currentTool === 'text') {
+                createTextInput(e);
+                return;
+            }
+
+            isDrawing = true;
+            const pos = getPos(e);
+            ctx.beginPath();
+            ctx.moveTo(pos.x, pos.y);
+
+            ctx.lineWidth = currentSize;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+
+            if (currentTool === 'pen') {
+                ctx.globalCompositeOperation = 'source-over';
+                ctx.strokeStyle = currentColor;
+            } else {
+                ctx.globalCompositeOperation = 'destination-out'; // Erase transparency
+                ctx.lineWidth = currentSize * 5; // Eraser bigger
+            }
+        }
+
+        function draw(e) {
+            if (!isDrawing) return;
+            const pos = getPos(e);
+            ctx.lineTo(pos.x, pos.y);
+            ctx.stroke();
+        }
+
+        function stopDraw() {
+            if (isDrawing) {
+                ctx.closePath();
+                isDrawing = false;
+            }
+        }
+
+        // --- Text Tool Logic ---
+        function createTextInput(e) {
+            const pos = getPos(e);
+
+            // Remove any existing active input
+            const existing = document.querySelector('.text-input-overlay');
+            if (existing) {
+                existing.blur(); // Trigger rasterize
+            }
+
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.className = 'text-input-overlay';
+
+            // Style
+            const fontSize = currentSize * 3 + 10;
+            input.style.fontSize = fontSize + 'px';
+            input.style.color = currentColor;
+            input.style.left = pos.x + 'px';
+            input.style.top = (pos.y - fontSize / 2) + 'px'; // Center vertically on click
+
+            wrapper.appendChild(input);
+
+            setTimeout(() => input.focus(), 10); // Ensure focus
+
+            // Events
+            input.addEventListener('blur', () => rasterizeText(input));
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') input.blur();
+            });
+        }
+
+        function rasterizeText(input) {
+            const text = input.value;
+            if (text.trim() !== "") {
+                const x = parseFloat(input.style.left);
+                const y = parseFloat(input.style.top);
+                const fontSize = parseFloat(input.style.fontSize);
+
+                ctx.globalCompositeOperation = 'source-over';
+                ctx.font = `${fontSize}px 'Segoe UI', sans-serif`;
+                ctx.fillStyle = input.style.color;
+                ctx.textBaseline = 'top'; // Align with input box
+                // Offset slightly to match input padding/indices
+                ctx.fillText(text, x + 2, y + 2);
+            }
+            input.remove();
+        }
+
+        // --- Tools ---
+        function setTool(tool) {
+            currentTool = tool;
+            // Visual update
+            document.querySelectorAll('.btn-tool').forEach(btn => btn.classList.remove('active'));
+            // Find button by checking onclick attribute or simple iteration
+            // (Simple hack: assume event.currentTarget deals with it)
+            if (event && event.currentTarget) {
+                event.currentTarget.classList.add('active');
+            } else {
+                // Fallback manual Select
+                // ... logic if called programmatically
+            }
+
+            // Hide/Show color picker based on tool
+            const cg = document.getElementById('color-group');
+            cg.style.opacity = tool === 'eraser' ? '0.3' : '1';
+            cg.style.pointerEvents = tool === 'eraser' ? 'none' : 'auto';
+
+            // Update cursor
+            drawCanvas.style.cursor = tool === 'text' ? 'text' : 'crosshair';
+        }
+
+        function setColor(color, el) {
+            currentColor = color;
+            // If eraser was active, switch to pen. If text was active, stay text.
+            if (currentTool === 'eraser') {
+                setTool('pen');
+                // Re-highlight pen button
+                document.querySelectorAll('.btn-tool')[0].classList.add('active');
+                document.querySelectorAll('.btn-tool')[1].classList.remove('active');
+            }
+
+            document.querySelectorAll('.color-picker').forEach(p => p.classList.remove('active'));
+            el.classList.add('active');
+        }
+
+        function setSize(val) {
+            currentSize = val;
+        }
+
+        function clearDrawLayer() {
+            ctx.clearRect(0, 0, drawCanvas.width, drawCanvas.height);
+        }
+
+        function clearCanvas() {
+            if (confirm('Bạn có chắc muốn xóa hết nét vẽ không?')) {
+                clearDrawLayer();
+            }
+        }
+
+        // --- Save ---
+        // --- Save ---
+        function saveCanvas() {
+            try {
+                // Create a temporary canvas to combine BG + Draw
+                const tempCanvas = document.createElement('canvas');
+                tempCanvas.width = bgCanvas.width;
+                tempCanvas.height = bgCanvas.height;
+                const tempCtx = tempCanvas.getContext('2d');
+
+                // 1. Fill with White Background (prevent transparent/black backgrounds)
+                tempCtx.fillStyle = '#ffffff';
+                tempCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+
+                // 2. Draw BG (Workbook Image)
+                tempCtx.drawImage(bgCanvas, 0, 0);
+
+                // 3. Draw Strokes (User Work)
+                tempCtx.drawImage(drawCanvas, 0, 0);
+
+                // 4. Export to Data URL
+                const dataURL = tempCanvas.toDataURL('image/png');
+
+                // 5. Create Download Link
+                const link = document.createElement('a');
+                link.download = `BaiLam_Toan4_Trang${currentPage}.png`;
+                link.href = dataURL;
+
+                // 6. Append to Body, Click, Remove (Required for Firefox/Chrome)
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+
+            } catch (err) {
+                console.error(err);
+                if (err.name === "SecurityError") {
+                    alert("Lỗi Bảo Mật: Trình duyệt chặn lưu ảnh khi mở file trực tiếp (file://).\n\nVui lòng đưa folder này lên Local Server hoặc GitHub Pages để tính năng Lưu hoạt động.");
+                } else {
+                    alert("Có lỗi khi lưu ảnh: " + err.message);
+                }
+            }
+        }
+
+    </script>
+
+</body>
+
+</html>
